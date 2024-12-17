@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Predictor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1b272f;
+            color: #ffffff;
+            margin-top: 30px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: top;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            gap: 30px;
+            width: 80%;
+        }
+
+        .alliance {
+            background-color: #2b4252;
+            padding: 20px;
+            border-radius: 10px;
+            width: 45%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .alliance h2 {
+            margin-bottom: 20px;
+        }
+
+        .alliance input {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #predict-button {
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #1b272f;
+            border: 2px solid #ffffff;
+            color: #ffffff;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #predict-button:hover {
+            background-color: #ffffff;
+            color: #1b272f;
+        }
+
+        .progress-bar {
+            margin-top: 40px;
+            width: 80%;
+            height: 30px;
+            background-color: #2b4252;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill-blue {
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: #1930b3; /* Blue for Blue Alliance */
+        }
+
+        .progress-fill-red {
+            height: 100%;
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: #b31919; /* Red for Red Alliance */
+        }
+
+        .progress-divider {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            height: 100%;
+            width: 2px;
+            background-color: #000000;
+        }
+
+        .percentages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            width: 80%;
+            font-size: 16px;
+        }
+
+        .opr-debug {
+            margin-top: 10px;
+            width: 80%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #1b272f;
+        }
+    </style>
+</head>
+<body>
+    <h1>FTC Match Predictor</h1>
+    <div class="container">
+        <div class="alliance" id="blue-alliance">
+            <h2>Blue Alliance</h2>
+            <input type="number" id="blue-team-1" placeholder="Blue Team 1 OPR">
+            <input type="number" id="blue-team-2" placeholder="Blue Team 2 OPR">
+        </div>
+        <div class="alliance" id="red-alliance">
+            <h2>Red Alliance</h2>
+            <input type="number" id="red-team-1" placeholder="Red Team 1 OPR">
+            <input type="number" id="red-team-2" placeholder="Red Team 2 OPR">
+        </div>
+    </div>
+    <button id="predict-button">Predict Match</button>
+    <div class="progress-bar">
+        <div class="progress-fill-blue" id="progress-fill-blue" style="width: 50%;"></div>
+        <div class="progress-fill-red" id="progress-fill-red" style="width: 50%;"></div>
+        <div class="progress-divider" id="progress-divider"></div>
+    </div>
+    <div class="percentages">
+<span id="blue-percentage">50%</span>
+        <span id="red-percentage">50%</span>
+        
+    </div>
+
+    <!-- OPR Debug Info -->
+    <div class="opr-debug">
+ <span id="blue-opr-debug">Blue Total OPR: 0</span>
+        <span id="red-opr-debug">Red Total OPR: 0</span>
+       
+    </div>
+
+    <script>
+        // Function to fetch OPR for a given team number
+        // Function to fetch OPR for a given team number, specifically looking for No Penalty OPR
+async function fetchOPR(teamNumber) {
+            const url = `https://api.ftcscout.org/rest/v1/teams/${teamNumber}/events/2024`;
+            try {
+                const response = await fetch(url);
+                const events = await response.json();
+		var tOpr = 0;
+
+                // Loop through events to get OPR
+                for (const event of events) {
+                    const stats = event.stats;
+                    if (stats) {
+                        const opr = stats.opr;
+                        if(opr.totalPointsNp > tOpr){
+			tOpr = opr.totalPointsNp;
+}
+			  // Return OPR value if available
+                    }
+                }
+                return tOpr; 
+            } catch (error) {
+                console.error('Error fetching OPR:', error);
+                return 0;
+            }
+        }
+
+
+        // Calculate the win percentage
+        function calculateWinPercentage(redOPR, blueOPR) {
+            const totalOPR = redOPR + blueOPR;
+            const redPercentage = (redOPR / totalOPR) * 100;
+            const bluePercentage = 100 - redPercentage;
+            return { redPercentage, bluePercentage };
+        }
+
+        document.getElementById('predict-button').addEventListener('click', async () => {
+            // Get the team numbers from inputs
+            const redTeam1 = document.getElementById('red-team-1').value.trim();
+            const redTeam2 = document.getElementById('red-team-2').value.trim();
+            const blueTeam1 = document.getElementById('blue-team-1').value.trim();
+            const blueTeam2 = document.getElementById('blue-team-2').value.trim();
+
+            // Fetch OPRs for each team
+            const redOPR1 = await fetchOPR(redTeam1);
+            const redOPR2 = await fetchOPR(redTeam2);
+            const blueOPR1 = await fetchOPR(blueTeam1);
+            const blueOPR2 = await fetchOPR(blueTeam2);
+
+            // Calculate total OPRs
+            const redTotalOPR = redOPR1 + redOPR2;
+            const blueTotalOPR = blueOPR1 + blueOPR2;
+
+            // Display the OPRs for debugging
+            document.getElementById('red-opr-debug').textContent = `Red Total OPR: ${redTotalOPR}`;
+            document.getElementById('blue-opr-debug').textContent = `Blue Total OPR: ${blueTotalOPR}`;
+
+            // Calculate the win percentages
+            const { redPercentage, bluePercentage } = calculateWinPercentage(redTotalOPR, blueTotalOPR);
+
+            // Update the progress bar and percentages
+            document.getElementById('progress-fill-blue').style.width = `${bluePercentage}%`;
+            document.getElementById('progress-fill-red').style.width = `${redPercentage}%`;
+            document.getElementById('red-percentage').textContent = `${redPercentage.toFixed(2)}%`;
+            document.getElementById('blue-percentage').textContent = `${bluePercentage.toFixed(2)}%`;
+
+            // Position the divider at the correct percentage
+            document.getElementById('progress-divider').style.left = `${bluePercentage}%`;
+        });
+    </script>
+</body>
+</html>
